@@ -1,0 +1,95 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-bg-base text-ink font-sans antialiased;
+    font-feature-settings: "ss01", "cv11";
+  }
+
+  /* Subtle scrollbar */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #d8d5c9;
+    border-radius: 999px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
+
+@layer components {
+  .card {
+    @apply bg-bg-surface rounded-3xl border border-line/70 shadow-card;
+  }
+
+  .card-pad {
+    @apply p-5;
+  }
+
+  .chip {
+    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium;
+  }
+
+  .nav-pill {
+    @apply relative flex items-center gap-1 rounded-full bg-ink p-1.5;
+  }
+
+  .nav-item {
+    @apply relative inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium text-white/70 transition-colors hover:text-white;
+  }
+
+  .nav-item.active {
+    @apply bg-white text-ink shadow-sm;
+  }
+
+  .icon-btn {
+    @apply inline-flex h-10 w-10 items-center justify-center rounded-full border border-line bg-bg-surface text-ink transition-colors hover:bg-bg-muted;
+  }
+
+  .kpi-card {
+    @apply card relative overflow-hidden p-5 transition-transform;
+  }
+
+  .kpi-card.accent-lime {
+    @apply bg-accent-lime border-transparent;
+  }
+  .kpi-card.accent-mint {
+    @apply bg-accent-mint border-transparent;
+  }
+  .kpi-card.accent-sky {
+    @apply bg-accent-sky border-transparent;
+  }
+  .kpi-card.accent-peach {
+    @apply bg-accent-peach border-transparent;
+  }
+  .kpi-card.accent-rose {
+    @apply bg-accent-rose border-transparent;
+  }
+}
+
+@layer utilities {
+  .text-display {
+    font-family: "Instrument Serif", ui-serif, Georgia, serif;
+    font-weight: 400;
+    letter-spacing: -0.01em;
+  }
+
+  .num {
+    font-variant-numeric: tabular-nums;
+  }
+}
