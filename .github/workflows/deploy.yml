@@ -24,6 +24,8 @@ jobs:
         run: npm install
 
       - name: Build Project
+        env:
+          VITE_API_URL: https://api.bsggroup.online
         run: npm run build
 
       - name: Sync files to Plesk via FTP
