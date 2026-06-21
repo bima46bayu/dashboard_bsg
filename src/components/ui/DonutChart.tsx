@@ -1,4 +1,4 @@
-import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
+import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip, Legend } from "recharts";
 
 type Slice = { name: string; value: number; color: string };
 
@@ -20,7 +20,7 @@ export default function DonutChart({
           <Pie
             data={data}
             innerRadius="62%"
-            outerRadius="90%"
+            outerRadius="85%"
             paddingAngle={2}
             dataKey="value"
             stroke="none"
@@ -30,6 +30,8 @@ export default function DonutChart({
             ))}
           </Pie>
           <Tooltip
+            formatter={(value: any, name: any) => [`Rp ${value.toLocaleString('id-ID')}`, name]}
+            cursor={{ stroke: "#0E0E0E", strokeWidth: 1, strokeDasharray: "3 3" }}
             contentStyle={{
               background: "#0E0E0E",
               border: "none",
@@ -39,6 +41,7 @@ export default function DonutChart({
               fontSize: 12,
             }}
           />
+          <Legend verticalAlign="bottom" iconType="circle" wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }} />
         </PieChart>
       </ResponsiveContainer>
       {(centerLabel || centerValue) && (

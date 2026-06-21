@@ -1,31 +1,13 @@
-export function formatCurrency(value: number, currency: string = "USD") {
-  if (Math.abs(value) >= 1_000_000_000) {
-    return `$${(value / 1_000_000_000).toFixed(2)}B`;
-  }
-  if (Math.abs(value) >= 1_000_000) {
-    return `$${(value / 1_000_000).toFixed(2)}M`;
-  }
-  if (Math.abs(value) >= 1_000) {
-    return `$${(value / 1_000).toFixed(1)}K`;
-  }
-  return new Intl.NumberFormat("en-US", {
+export function formatCurrency(value: number, currency: string = "IDR") {
+  return new Intl.NumberFormat("id-ID", {
     style: "currency",
-    currency,
-    maximumFractionDigits: 2,
+    currency: currency,
+    maximumFractionDigits: 0,
   }).format(value);
 }
 
 export function formatNumber(value: number) {
-  if (Math.abs(value) >= 1_000_000_000) {
-    return `${(value / 1_000_000_000).toFixed(2)}B`;
-  }
-  if (Math.abs(value) >= 1_000_000) {
-    return `${(value / 1_000_000).toFixed(2)}M`;
-  }
-  if (Math.abs(value) >= 1_000) {
-    return `${(value / 1_000).toFixed(1)}K`;
-  }
-  return new Intl.NumberFormat("en-US").format(value);
+  return new Intl.NumberFormat("id-ID").format(value);
 }
 
 export function formatPercent(value: number, fractionDigits = 2) {

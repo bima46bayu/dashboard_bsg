@@ -46,7 +46,7 @@
   }
 
   .nav-pill {
-    @apply relative flex items-center gap-1 rounded-full bg-ink p-1.5;
+    @apply relative inline-flex items-center gap-1 rounded-full bg-ink p-1.5 max-w-full overflow-x-auto;
   }
 
   .nav-item {

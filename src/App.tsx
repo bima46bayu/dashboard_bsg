@@ -1,4 +1,4 @@
-import { Route, Routes } from "react-router-dom";
+import { Route, Routes, Navigate } from "react-router-dom";
 import PageShell from "@/components/layout/PageShell";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import { PartnersProvider } from "@/context/PartnersContext";
@@ -20,10 +20,14 @@ import MonitoringNewProjectPage from "@/pages/monitoring/MonitoringNewProjectPag
 import MonitoringMasterDataPage from "@/pages/monitoring/MonitoringMasterDataPage";
 import MonitoringMasterItemPage from "@/pages/monitoring/MonitoringMasterItemPage";
 import MonitoringMasterIndirectCostPage from "@/pages/monitoring/MonitoringMasterIndirectCostPage";
+import UsersPage from "@/pages/UsersPage";
+import { Toaster } from "react-hot-toast";
 
 export default function App() {
   return (
-    <Routes>
+    <>
+      <Toaster position="top-center" reverseOrder={false} />
+      <Routes>
       <Route path="/login" element={<LoginPage />} />
 
       <Route
@@ -52,22 +56,24 @@ export default function App() {
                     element={
                       <PageShell>
                         <Routes>
-                          <Route path="/" element={<DashboardPage />} />
-                          <Route path="/sales" element={<SalesPage />} />
-                          <Route path="/inventory" element={<InventoryPage />} />
-                          <Route path="/project" element={<ProjectPage />} />
+                          <Route index element={<DashboardPage />} />
+                          <Route path="sales" element={<SalesPage />} />
+                          <Route path="inventory" element={<InventoryPage />} />
+                          <Route path="project" element={<ProjectPage />} />
                           <Route
-                            path="/profitability"
+                            path="profitability"
                             element={<ProfitabilityPage />}
                           />
-                          <Route path="/asset" element={<AssetPage />} />
-                          <Route path="/document" element={<DocumentPage />} />
-                          <Route path="/marketing" element={<MarketingPage />} />
+                          <Route path="asset" element={<AssetPage />} />
+                          <Route path="document" element={<DocumentPage />} />
+                          <Route path="marketing" element={<MarketingPage />} />
                           <Route
-                            path="/marketing/whatsapp"
+                            path="marketing/whatsapp"
                             element={<WhatsAppPromoPage />}
                           />
-                          <Route path="/reporting" element={<ReportingPage />} />
+                          <Route path="reporting" element={<ReportingPage />} />
+                          <Route path="users" element={<UsersPage />} />
+                          <Route path="*" element={<Navigate to="/" replace />} />
                         </Routes>
                       </PageShell>
                     }
@@ -78,6 +84,7 @@ export default function App() {
           </ProtectedRoute>
         }
       />
-    </Routes>
+      </Routes>
+    </>
   );
 }

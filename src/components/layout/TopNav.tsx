@@ -70,7 +70,7 @@ export default function TopNav() {
             className={({ isActive }) => cn("nav-item", isActive && "active")}
           >
             <link.icon className="h-4 w-4" />
-            <span className="hidden lg:inline">{link.label}</span>
+            <span className="hidden xl:inline">{link.label}</span>
           </NavLink>
         );
       })}
@@ -124,7 +124,7 @@ function NavDropdown({
         className={cn("nav-item", isActive && "active")}
       >
         <item.icon className="h-4 w-4" />
-        <span className="hidden lg:inline">{item.label}</span>
+        <span className="hidden xl:inline">{item.label}</span>
         <ChevronDown
           className={cn(
             "h-3.5 w-3.5 transition-transform",
