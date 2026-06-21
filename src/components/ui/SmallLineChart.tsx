@@ -66,7 +66,7 @@ export default function SmallLineChart({
             }}
           />
           <Tooltip
-            formatter={(value: any, name: any, props: any) => {
+            formatter={(_value: any, name: any, props: any) => {
               const realVal = name === 'target' ? props.payload._RealTarget : props.payload._RealRealisasi;
               return [`Rp ${(realVal || 0).toLocaleString('id-ID')}`, name];
             }}

@@ -12,6 +12,7 @@ type Props = {
   data: any[];
   height?: number;
   showAxis?: boolean;
+  highlightIndex?: number;
 };
 
 export default function BarChartCard({
