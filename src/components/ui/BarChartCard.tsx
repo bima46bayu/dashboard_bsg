@@ -76,7 +76,7 @@ export default function BarChartCard({
           <Tooltip
             formatter={(_value: any, name: any, props: any) => {
               const realVal = name === 'Target' ? props.payload._RealTarget : props.payload._RealRealisasi;
-              return [`Rp ${(realVal || 0).toLocaleString('id-ID')}`, name];
+              return [`Rp ${Number(realVal || 0).toLocaleString('id-ID')}`, name];
             }}
             cursor={{ fill: "rgba(0,0,0,0.04)" }}
             contentStyle={{

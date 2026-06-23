@@ -9,6 +9,7 @@ import SalesPage from "@/pages/SalesPage";
 import InventoryPage from "@/pages/InventoryPage";
 import ProjectPage from "@/pages/ProjectPage";
 import ProfitabilityPage from "@/pages/ProfitabilityPage";
+import SalesManagementPage from "@/pages/SalesManagementPage";
 import AssetPage from "@/pages/AssetPage";
 import DocumentPage from "@/pages/DocumentPage";
 import MarketingPage from "@/pages/MarketingPage";
@@ -58,6 +59,7 @@ export default function App() {
                         <Routes>
                           <Route index element={<DashboardPage />} />
                           <Route path="sales" element={<SalesPage />} />
+                          <Route path="sales/management" element={<SalesManagementPage />} />
                           <Route path="inventory" element={<InventoryPage />} />
                           <Route path="project" element={<ProjectPage />} />
                           <Route

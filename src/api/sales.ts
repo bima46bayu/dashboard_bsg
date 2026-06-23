@@ -173,8 +173,10 @@ export async function importRealizationsExcel(file: File) {
   return res.json();
 }
 
-export async function fetchMasterList(type: string, page: number = 1) {
-  return apiFetch<{ data: any[], current_page: number, last_page: number }>(`/api/sales/master/${type}?page=${page}`);
+export async function fetchMasterList(type: string, page: number = 1, search: string = "") {
+  const q = new URLSearchParams({ page: page.toString() });
+  if (search) q.append("search", search);
+  return apiFetch<{ data: any[], current_page: number, last_page: number }>(`/api/sales/master/${type}?${q.toString()}`);
 }
 
 export async function saveMasterData(type: string, data: any) {

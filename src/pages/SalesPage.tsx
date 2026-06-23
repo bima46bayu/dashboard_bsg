@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, Link } from "react-router-dom";
 import { Banknote, Target, TrendingUp, Award, RefreshCcw, Settings, Filter, ChevronLeft, ChevronRight, ChevronDown } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageShell";
 import StatCard from "@/components/ui/StatCard";
@@ -14,7 +14,6 @@ import {
 } from "@/components/ui/Card";
 import { formatCurrency } from "@/lib/format";
 import { fetchSalesDashboard, fetchMasterData, type SalesDashboardData, type MasterData } from "@/api/sales";
-import SalesCmsPanel from "@/components/sales/SalesCmsPanel";
 import { useAuth } from "@/context/AuthContext";
 
 // Helper for Ach %
@@ -46,14 +45,6 @@ export default function SalesPage() {
   const [master, setMaster] = useState<MasterData | null>(null);
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
-  const cmsOpen = searchParams.get("cms") === "true";
-  const setCmsOpen = (open: boolean) => {
-    setSearchParams(prev => {
-      if (open) prev.set("cms", "true");
-      else prev.delete("cms");
-      return prev;
-    }, { replace: true });
-  };
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [trendView, setTrendView] = useState<"monthly" | "yearly">("monthly");
   const [mainTrendView, setMainTrendView] = useState<"monthly" | "yearly">("monthly");
@@ -172,13 +163,13 @@ export default function SalesPage() {
             </div>
             
             {user?.role === 'admin' && (
-              <button 
-                onClick={() => setCmsOpen(true)}
+              <Link 
+                to="/sales/management"
                 className="flex items-center gap-2 bg-slate-800 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-slate-700 transition"
               >
                 <Settings className="w-4 h-4" />
                 CMS Data
-              </button>
+              </Link>
             )}
           </div>
         }
@@ -584,12 +575,6 @@ export default function SalesPage() {
 
         </>
       ) : null}
-
-      <SalesCmsPanel 
-        open={cmsOpen} 
-        onClose={() => { setCmsOpen(false); loadData(); }} 
-        master={master} 
-      />
     </>
   );
 }

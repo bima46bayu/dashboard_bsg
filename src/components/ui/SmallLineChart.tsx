@@ -68,7 +68,7 @@ export default function SmallLineChart({
           <Tooltip
             formatter={(_value: any, name: any, props: any) => {
               const realVal = name === 'target' ? props.payload._RealTarget : props.payload._RealRealisasi;
-              return [`Rp ${(realVal || 0).toLocaleString('id-ID')}`, name];
+              return [`Rp ${Number(realVal || 0).toLocaleString('id-ID')}`, name];
             }}
             cursor={{ stroke: "#cbd5e1", strokeWidth: 1, strokeDasharray: "3 3" }}
             contentStyle={{ background: "#0f172a", border: "none", borderRadius: 8, color: "#fff", padding: "8px 12px", fontSize: 12 }}
