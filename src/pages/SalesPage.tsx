@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useSearchParams, Link } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { Banknote, Target, TrendingUp, Award, RefreshCcw, Settings, Filter, ChevronLeft, ChevronRight, ChevronDown } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageShell";
 import StatCard from "@/components/ui/StatCard";
@@ -40,7 +40,6 @@ function AchBadge({ target, real }: { target: number; real: number }) {
 }
 
 export default function SalesPage() {
-  const [searchParams, setSearchParams] = useSearchParams();
   const [data, setData] = useState<SalesDashboardData | null>(null);
   const [master, setMaster] = useState<MasterData | null>(null);
   const [loading, setLoading] = useState(true);
