@@ -13,7 +13,6 @@ import {
   ChevronDown,
   Activity,
   MessageCircle,
-  Settings,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/cn";
