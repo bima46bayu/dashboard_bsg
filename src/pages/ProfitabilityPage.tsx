@@ -78,7 +78,7 @@ export default function ProfitabilityPage() {
   }
 
   const sum = data?.summary || { pendapatan: 0, laba_kotor: 0, laba_operasi: 0, laba_bersih: 0 };
-  const grossMarginPercent = sum.pendapatan > 0 ? (sum.laba_kotor / sum.pendapatan) * 100 : 0;
+
   
   const trendData = data?.trend?.map((t: any) => ({
     label: months[t.month - 1],
@@ -185,11 +185,3 @@ export default function ProfitabilityPage() {
   );
 }
 
-function LegendItem({ color, label }: { color: string; label: string }) {
-  return (
-    <div className="inline-flex items-center gap-1.5">
-      <span className="h-2 w-2 rounded-full" style={{ background: color }} />
-      <span className="text-ink-soft truncate" title={label}>{label}</span>
-    </div>
-  );
-}
