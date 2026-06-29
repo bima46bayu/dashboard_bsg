@@ -22,12 +22,18 @@ import {
 } from "@/api/sales";
 import { apiUrl } from "@/lib/api";
 import toast from "react-hot-toast";
+import ConfirmModal from "@/components/ui/ConfirmModal";
 
 export default function SalesManagementPage() {
   const [master, setMaster] = useState<MasterData | null>(null);
   const [activeTab, setActiveTab] = useState<"target" | "realisasi">("target");
   const [data, setData] = useState<any[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
+  const [confirmModal, setConfirmModal] = useState({ isOpen: false, message: "", onConfirm: () => {} });
+
+  const showConfirm = (message: string, onConfirm: () => void) => {
+    setConfirmModal({ isOpen: true, message, onConfirm });
+  };
   const [lastPage, setLastPage] = useState(1);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -115,15 +121,16 @@ export default function SalesManagementPage() {
     // eslint-disable-next-line
   }, [activeTab]);
 
-  const handleDelete = async (id: number) => {
-    if (!confirm("Yakin hapus data ini?")) return;
-    try {
-      if (activeTab === "target") await deleteTarget(id);
-      else await deleteRealization(id);
-      loadList();
-    } catch (error) {
-      toast.error("Gagal menghapus data");
-    }
+  const handleDelete = (id: number) => {
+    showConfirm("Yakin hapus data ini?", async () => {
+      try {
+        if (activeTab === "target") await deleteTarget(id);
+        else await deleteRealization(id);
+        loadList();
+      } catch (error) {
+        toast.error("Gagal menghapus data");
+      }
+    });
   };
 
   const processUploadFile = async (file: File) => {
@@ -263,15 +270,16 @@ export default function SalesManagementPage() {
     }
   };
 
-  const handleDeleteMaster = async (id: number) => {
-    if (!confirm("Yakin hapus data master ini?")) return;
-    try {
-      await deleteMasterData(masterType!, id);
-      loadMaster();
-      openMasterModal(masterType!, masterCurrentPage, searchQuery);
-    } catch (error) {
-      toast.error("Gagal menghapus master");
-    }
+  const handleDeleteMaster = (id: number) => {
+    showConfirm("Yakin hapus data master ini?", async () => {
+      try {
+        await deleteMasterData(masterType!, id);
+        loadMaster();
+        openMasterModal(masterType!, masterCurrentPage, searchQuery);
+      } catch (error) {
+        toast.error("Gagal menghapus master");
+      }
+    });
   };
 
   return (
@@ -674,11 +682,11 @@ export default function SalesManagementPage() {
                   <button 
                     type="button"
                     onClick={() => {
-                      if(window.confirm("Hapus draft ini?")) {
+                      showConfirm("Hapus draft ini?", () => {
                         const newDrafts = drafts.filter((_, i) => i !== currentDraftIndex);
                         setDrafts(newDrafts);
                         setCurrentDraftIndex(Math.max(0, currentDraftIndex - 1));
-                      }
+                      });
                     }}
                     className="px-3 py-2 rounded-lg border border-red-200 bg-red-50 text-red-600 flex items-center justify-center hover:bg-red-100 transition-colors text-sm font-semibold shadow-sm"
                     title="Hapus Draft Ini"
@@ -965,6 +973,12 @@ export default function SalesManagementPage() {
         </div>
       )}
 
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        message={confirmModal.message}
+        onConfirm={confirmModal.onConfirm}
+        onCancel={() => setConfirmModal({ ...confirmModal, isOpen: false })}
+      />
     </>
   );
 }

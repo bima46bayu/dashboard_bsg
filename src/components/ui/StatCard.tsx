@@ -69,7 +69,7 @@ export default function StatCard({
               </span>
             </div>
           ) : null}
-          <div className="text-display text-4xl leading-none num">{value}</div>
+          <div className="text-display text-2xl md:text-3xl 2xl:text-4xl leading-none num whitespace-nowrap overflow-hidden text-ellipsis" title={value}>{value}</div>
         </div>
       </div>
     </div>

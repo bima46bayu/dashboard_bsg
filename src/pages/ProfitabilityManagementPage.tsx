@@ -3,8 +3,10 @@ import { PageHeader } from "@/components/layout/PageShell";
 import { Plus, ArrowLeft, Download, User, Edit, Trash2, X, ChevronLeft, ChevronRight, Save, Eye, Search } from "lucide-react";
 import { Link } from "react-router-dom";
 import { formatCurrency } from "@/lib/format";
-import { fetchProfitabilities, deleteProfitability, saveProfitabilities, updateProfitability, downloadProfitabilitiesTemplate, downloadProfitabilitiesExport, importProfitabilitiesExcel } from "@/api/profitability";
+import { fetchProfitabilities, deleteProfitability, saveProfitabilities, updateProfitability, downloadProfitabilitiesTemplate, downloadProfitabilitiesExport, importProfitabilitiesExcel, fetchProfitabilitySubEntities, saveProfitabilitySubEntity, updateProfitabilitySubEntity, deleteProfitabilitySubEntity } from "@/api/profitability";
 import { fetchMasterData, type MasterData, fetchMasterList, saveMasterData, updateMasterData, deleteMasterData } from "@/api/sales";
+import toast from "react-hot-toast";
+import ConfirmModal from "@/components/ui/ConfirmModal";
 
 type FinancialItem = {
   id: string;
@@ -42,7 +44,6 @@ const createEmptyForm = (): FormState => ({
   biaya_lain: [],
   pajak: []
 });
-
 const DynamicInputSection = ({ 
   title, 
   field, 
@@ -50,7 +51,8 @@ const DynamicInputSection = ({
   total,
   onAdd,
   onUpdate,
-  onRemove
+  onRemove,
+  onConfirmDelete
 }: { 
   title: string; 
   field: keyof FormState; 
@@ -59,6 +61,7 @@ const DynamicInputSection = ({
   onAdd: (field: keyof FormState) => void;
   onUpdate: (field: keyof FormState, id: string, key: keyof FinancialItem, value: any) => void;
   onRemove: (field: keyof FormState, id: string) => void;
+  onConfirmDelete: (message: string, onConfirm: () => void) => void;
 }) => (
   <div className="mb-5 bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
     <div className="bg-slate-100/50 border-b border-gray-200 px-5 py-3.5 flex items-center justify-between">
@@ -109,7 +112,7 @@ const DynamicInputSection = ({
               </div>
               <div className="pt-5">
                 <button
-                  onClick={() => onRemove(field, item.id)}
+                  onClick={() => onConfirmDelete("Yakin hapus baris ini?", () => onRemove(field, item.id))}
                   className="p-2 text-red-500 hover:bg-red-50 hover:text-red-700 rounded-lg transition-colors border border-transparent hover:border-red-100"
                   title="Hapus baris ini"
                 >
@@ -136,11 +139,17 @@ const DynamicInputSection = ({
 
 
 export default function ProfitabilityManagementPage() {
-  const [activeTab, setActiveTab] = useState<"list" | "master">("list");
+  const [activeTab, setActiveTab] = useState<"list" | "master" | "sub_master">("list");
+  const [confirmModal, setConfirmModal] = useState({ isOpen: false, message: "", onConfirm: () => {} });
+  
+  const showConfirm = (message: string, onConfirm: () => void) => {
+    setConfirmModal({ isOpen: true, message, onConfirm });
+  };
   
   const MONTHS = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
 
   const [master, setMaster] = useState<MasterData | null>(null);
+  const [subEntities, setSubEntities] = useState<any[]>([]);
 
   // List data
   const [data, setData] = useState<any[]>([]);
@@ -154,7 +163,7 @@ export default function ProfitabilityManagementPage() {
       const res = await fetchProfitabilities(page);
       setData(res.data.map((item: any) => ({
         ...item,
-        entity: item.entity?.name || 'Unknown'
+        entity: item.sub_entity ? `${item.entity?.name} - ${item.sub_entity.name}` : (item.entity?.name || 'Unknown')
       })));
       setCurrentPage(res.current_page);
       setLastPage(res.last_page);
@@ -168,6 +177,7 @@ export default function ProfitabilityManagementPage() {
   useEffect(() => {
     fetchData();
     fetchMasterData().then(setMaster).catch(console.error);
+    fetchProfitabilitySubEntities().then(setSubEntities).catch(console.error);
   }, []);
 
   // Master Entity CRUD states
@@ -188,6 +198,20 @@ export default function ProfitabilityManagementPage() {
   const [editMasterName, setEditMasterName] = useState("");
   const [editMasterCode, setEditMasterCode] = useState("");
   const [editMasterStatus, setEditMasterStatus] = useState<number>(1);
+
+  const [isAddSubMasterModalOpen, setIsAddSubMasterModalOpen] = useState(false);
+  const [isEditSubMasterModalOpen, setIsEditSubMasterModalOpen] = useState(false);
+  const [editingSubMasterId, setEditingSubMasterId] = useState<number | null>(null);
+
+  const [newSubMasterName, setNewSubMasterName] = useState("");
+  const [newSubMasterCode, setNewSubMasterCode] = useState("");
+  const [newSubMasterEntityId, setNewSubMasterEntityId] = useState("");
+  const [newSubMasterStatus, setNewSubMasterStatus] = useState<number>(1);
+
+  const [editSubMasterName, setEditSubMasterName] = useState("");
+  const [editSubMasterCode, setEditSubMasterCode] = useState("");
+  const [editSubMasterEntityId, setEditSubMasterEntityId] = useState("");
+  const [editSubMasterStatus, setEditSubMasterStatus] = useState<number>(1);
 
   const loadMasterList = async (page: number = 1, search: string = searchQuery) => {
     setMasterLoading(true);
@@ -231,19 +255,64 @@ export default function ProfitabilityManagementPage() {
       fetchMasterData().then(setMaster).catch(console.error);
       loadMasterList(masterCurrentPage, searchQuery);
     } catch (error) {
-      alert("Gagal mengubah master");
+      toast.error("Gagal mengubah master");
     }
   };
 
-  const handleDeleteMaster = async (id: number) => {
-    if (!window.confirm("Yakin hapus data master ini?")) return;
+  const handleDeleteMaster = (id: number) => {
+    showConfirm("Yakin hapus data master ini?", async () => {
+      try {
+        await deleteMasterData('entities', id);
+        fetchMasterData().then(setMaster).catch(console.error);
+        loadMasterList(masterCurrentPage, searchQuery);
+      } catch (error) {
+        toast.error("Gagal menghapus master");
+      }
+    });
+  };
+
+  const loadSubMasterList = async () => {
     try {
-      await deleteMasterData('entities', id);
-      fetchMasterData().then(setMaster).catch(console.error);
-      loadMasterList(masterCurrentPage, searchQuery);
+      const res = await fetchProfitabilitySubEntities();
+      setSubEntities(res);
     } catch (error) {
-      alert("Gagal menghapus master");
+      console.error(error);
     }
+  };
+
+  const handleAddSubMaster = async () => {
+    if (!newSubMasterName.trim() || !newSubMasterEntityId) return;
+    try {
+      await saveProfitabilitySubEntity({ entity_id: newSubMasterEntityId, name: newSubMasterName, code: newSubMasterCode, is_active: newSubMasterStatus === 1 });
+      setNewSubMasterName(""); setNewSubMasterCode(""); setNewSubMasterStatus(1); setNewSubMasterEntityId("");
+      setIsAddSubMasterModalOpen(false);
+      loadSubMasterList();
+    } catch (error) {
+      alert("Gagal menambah sub master");
+    }
+  };
+
+  const handleUpdateSubMaster = async (id: number) => {
+    if (!editSubMasterName.trim() || !editSubMasterEntityId) return;
+    try {
+      await updateProfitabilitySubEntity(id, { entity_id: editSubMasterEntityId, name: editSubMasterName, code: editSubMasterCode, is_active: editSubMasterStatus === 1 });
+      setEditingSubMasterId(null);
+      setIsEditSubMasterModalOpen(false);
+      loadSubMasterList();
+    } catch (error) {
+      alert("Gagal mengubah sub master");
+    }
+  };
+
+  const handleDeleteSubMaster = (id: number) => {
+    showConfirm("Yakin hapus data sub master ini?", async () => {
+      try {
+        await deleteProfitabilitySubEntity(id);
+        loadSubMasterList();
+      } catch (error) {
+        toast.error("Gagal menghapus sub master");
+      }
+    });
   };
 
   // Modal states
@@ -261,7 +330,7 @@ export default function ProfitabilityManagementPage() {
     try {
       await downloadProfitabilitiesExport();
     } catch (err: any) {
-      alert(err.message || "Gagal mengunduh data");
+      toast.error(err.message || "Gagal mengunduh data");
     }
   };
 
@@ -269,13 +338,13 @@ export default function ProfitabilityManagementPage() {
     try {
       await downloadProfitabilitiesTemplate();
     } catch (err: any) {
-      alert(err.message || "Gagal mengunduh template");
+      toast.error(err.message || "Gagal mengunduh template");
     }
   };
 
   const handleImport = async () => {
     if (!importFile) {
-      alert("Pilih file excel terlebih dahulu");
+      toast.error("Pilih file excel terlebih dahulu");
       return;
     }
     setIsImporting(true);
@@ -283,24 +352,24 @@ export default function ProfitabilityManagementPage() {
       await importProfitabilitiesExcel(importFile);
       setIsImportModalOpen(false);
       setImportFile(null);
-      alert("Data berhasil diimpor!");
+      toast.success("Data berhasil diimpor!");
       fetchData(1);
     } catch (err: any) {
-      alert(err.message || "Gagal mengimpor data");
+      toast.error(err.message || "Gagal mengimpor data");
     } finally {
       setIsImporting(false);
     }
   };
 
-  const handleDeleteList = async (id: number) => {
-    if (window.confirm("Yakin hapus data ini?")) {
+  const handleDeleteList = (id: number) => {
+    showConfirm("Yakin hapus data ini?", async () => {
       try {
         await deleteProfitability(id);
         fetchData(currentPage);
       } catch (err: any) {
-        alert("Gagal menghapus data: " + err.message);
+        toast.error("Gagal menghapus data: " + err.message);
       }
-    }
+    });
   };
 
   const openAddModal = () => {
@@ -313,7 +382,7 @@ export default function ProfitabilityManagementPage() {
   const openEditModal = (item: any) => {
     const editDraft: FormState = {
       id: item.id,
-      entity_id: item.entity_id ? item.entity_id.toString() : "",
+      entity_id: item.sub_entity_id ? `${item.entity_id}|${item.sub_entity_id}` : (item.entity_id ? item.entity_id.toString() : ""),
       year: item.year,
       month: item.month,
       pendapatan: item.pendapatan_items || [],
@@ -344,7 +413,7 @@ export default function ProfitabilityManagementPage() {
     setDrafts(newDrafts);
   };
 
-  const sumAmounts = (items: FinancialItem[]) => items.reduce((sum, item) => sum + (item.amount || 0), 0);
+  const sumAmounts = (items: FinancialItem[]) => items.reduce((sum, item) => sum + Math.abs(parseFloat(String(item.amount)) || 0), 0);
 
   const addItem = (field: keyof FormState) => {
     if (field === 'entity_id' || field === 'year' || field === 'month') return;
@@ -387,11 +456,13 @@ export default function ProfitabilityManagementPage() {
       const pajak = sum(d.pajak);
       const laba_bersih = laba_sebelum_pajak - pajak;
 
+      const [eId, subEId] = d.entity_id.split("|");
       return {
         id: d.id,
         year: d.year,
         month: d.month,
-        entity_id: d.entity_id,
+        entity_id: eId,
+        sub_entity_id: subEId || null,
         pendapatan_items: d.pendapatan,
         hpp_items: d.hpp,
         biaya_marketing_items: d.biaya_marketing,
@@ -418,7 +489,7 @@ export default function ProfitabilityManagementPage() {
       setIsModalOpen(false);
       fetchData(1);
     } catch (err: any) {
-      alert("Gagal menyimpan data: " + err.message);
+      toast.error("Gagal menyimpan data: " + err.message);
     }
   };
 
@@ -450,7 +521,7 @@ export default function ProfitabilityManagementPage() {
         title={activeTab === 'list' ? "CMS Profitability" : "Master Entity (Profitability)"}
         subtitle="Kelola Data Laba Rugi dan Entitas"
         actions={
-          activeTab === 'master' ? (
+          (activeTab === 'master' || activeTab === 'sub_master') ? (
             <button 
               onClick={() => setActiveTab('list')} 
               className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-lg text-sm font-semibold transition shadow-sm border border-slate-200"
@@ -469,7 +540,7 @@ export default function ProfitabilityManagementPage() {
       />
 
       <div className="space-y-6">
-        {activeTab === 'list' ? (
+        {activeTab === 'list' && (
           <>
             {/* Master Shortcuts */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
@@ -485,6 +556,19 @@ export default function ProfitabilityManagementPage() {
                   <div>
                     <div className="font-bold text-slate-800">Master Entity</div>
                     <div className="text-xs text-slate-500">Kelola entitas bisnis</div>
+                  </div>
+                </div>
+
+                <div 
+                  onClick={() => setActiveTab('sub_master')} 
+                  className="flex items-center p-4 border border-indigo-100 bg-indigo-50 rounded-xl hover:-translate-y-1 transition-all duration-300 shadow-sm cursor-pointer group"
+                >
+                  <div className="w-12 h-12 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center mr-4 group-hover:scale-110 transition-transform">
+                    <Plus className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <div className="font-bold text-slate-800">Sub Entity</div>
+                    <div className="text-xs text-slate-500">Kelola sub entitas bisnis</div>
                   </div>
                 </div>
               </div>
@@ -550,26 +634,14 @@ export default function ProfitabilityManagementPage() {
                             <td className="px-4 py-2.5 whitespace-nowrap text-xs text-emerald-600 font-bold text-right">
                               {formatCurrency(item.laba_bersih)}
                             </td>
-                            <td className="px-4 py-2.5 whitespace-nowrap text-xs text-center flex items-center justify-center gap-1">
-                              <button 
-                                onClick={() => setSelectedDetail(item)}
-                                className="text-blue-600 hover:text-blue-900 p-1"
-                                title="Detail"
-                              >
+                            <td className="px-6 py-4 text-center whitespace-nowrap">
+                              <button onClick={() => setSelectedDetail(item)} className="text-blue-600 hover:text-blue-900 mx-1 p-1">
                                 <Eye className="w-4 h-4" />
                               </button>
-                              <button 
-                                onClick={() => openEditModal(item)}
-                                className="text-amber-600 hover:text-amber-900 p-1"
-                                title="Edit"
-                              >
+                              <button onClick={() => openEditModal(item)} className="text-amber-600 hover:text-amber-900 mx-1 p-1">
                                 <Edit className="w-4 h-4" />
                               </button>
-                              <button 
-                                onClick={() => handleDeleteList(item.id)} 
-                                className="text-red-600 hover:text-red-900 mx-1 p-1"
-                                title="Hapus"
-                              >
+                              <button onClick={() => handleDeleteList(item.id)} className="text-red-600 hover:text-red-900 mx-1 p-1">
                                 <Trash2 className="w-4 h-4" />
                               </button>
                             </td>
@@ -579,11 +651,11 @@ export default function ProfitabilityManagementPage() {
                     </tbody>
                   </table>
                 </div>
-
+                
                 {/* Pagination Controls */}
                 {!loading && data.length > 0 && lastPage > 1 && (
-                  <div className="flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3 sm:px-6 mt-4 rounded-b-xl">
-                    <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+                  <div className="flex items-center justify-between border-t border-gray-200 bg-white px-6 py-4 rounded-b-xl shadow-sm mt-4">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:flex-1 sm:items-center sm:justify-between w-full">
                       <div>
                         <p className="text-sm text-gray-700">
                           Halaman <span className="font-medium">{currentPage}</span> dari <span className="font-medium">{lastPage}</span>
@@ -615,7 +687,9 @@ export default function ProfitabilityManagementPage() {
               </div>
             </div>
           </>
-        ) : (
+        )}
+
+        {activeTab === 'master' && (
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
             <div className="border-b border-gray-200 px-6 py-4 flex items-center justify-between">
               <div>
@@ -694,7 +768,7 @@ export default function ProfitabilityManagementPage() {
             {/* Pagination Controls Master */}
             {!masterLoading && masterList.length > 0 && masterLastPage > 1 && (
               <div className="flex items-center justify-between border-t border-gray-200 bg-white px-6 py-4 rounded-b-xl shadow-sm">
-                <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+                <div className="flex flex-col gap-3 sm:flex-row sm:flex-1 sm:items-center sm:justify-between w-full">
                   <div>
                     <p className="text-sm text-gray-700">
                       Halaman <span className="font-medium">{masterCurrentPage}</span> dari <span className="font-medium">{masterLastPage}</span>
@@ -723,6 +797,79 @@ export default function ProfitabilityManagementPage() {
                 </div>
               </div>
             )}
+          </div>
+        )}
+
+        {activeTab === 'sub_master' && (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            <div className="border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+              <div>
+                <div className="flex items-center gap-3 mt-1">
+                  <div className="w-10 h-10 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center">
+                    <User className="w-5 h-5" />
+                  </div>
+                  <h3 className="text-2xl font-bold text-slate-800 capitalize">Sub Entity</h3>
+                </div>
+              </div>
+              <div className="flex items-center gap-4">
+                <button onClick={() => { setNewSubMasterName(''); setNewSubMasterCode(''); setNewSubMasterStatus(1); setNewSubMasterEntityId(''); setIsAddSubMasterModalOpen(true); }} className="bg-emerald-500 text-white px-4 py-2.5 rounded-lg text-sm font-bold hover:bg-emerald-600 transition flex items-center gap-2 shadow-sm">
+                  <Plus className="w-4 h-4" /> Sub Entity
+                </button>
+              </div>
+            </div>
+            
+            <div className="overflow-x-auto p-0">
+              <table className="w-full text-sm text-left text-gray-500">
+                <thead className="text-xs text-slate-700 uppercase bg-slate-50 border-b border-gray-200">
+                  <tr>
+                    <th className="px-6 py-4 font-bold w-1/4">ENTITY UTAMA</th>
+                    <th className="px-6 py-4 font-bold w-1/4">CODE</th>
+                    <th className="px-6 py-4 font-bold w-1/4">NAME</th>
+                    <th className="px-6 py-4 font-bold">STATUS</th>
+                    <th className="px-6 py-4 font-bold text-center">AKSI</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {subEntities.map((s: any) => (
+                    <tr key={s.id} className="bg-white border-b border-gray-50 hover:bg-slate-50 transition">
+                      <td className="px-6 py-4 text-slate-800 font-semibold uppercase">
+                        {s.entity?.name || '-'}
+                      </td>
+                      <td className="px-6 py-4 text-slate-800 font-semibold whitespace-nowrap">
+                        {s.code || '-'}
+                      </td>
+                      <td className="px-6 py-4 text-slate-800 font-semibold uppercase">
+                        {s.name}
+                      </td>
+                      <td className="px-6 py-4 text-slate-800">
+                        {s.is_active === 1 || s.is_active === true ? <span className="bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full text-[10px] font-bold">Active</span> : 
+                         <span className="bg-red-100 text-red-700 px-3 py-1 rounded-full text-[10px] font-bold">Inactive</span>}
+                      </td>
+                      <td className="px-6 py-4 text-center whitespace-nowrap">
+                        <button onClick={() => {
+                          setEditingSubMasterId(s.id);
+                          setEditSubMasterName(s.name);
+                          setEditSubMasterCode(s.code || "");
+                          setEditSubMasterStatus(s.is_active === 1 || s.is_active === true ? 1 : 0);
+                          setEditSubMasterEntityId(s.entity_id?.toString() || "");
+                          setIsEditSubMasterModalOpen(true);
+                        }} className="text-amber-600 hover:text-amber-900 mx-1 p-1">
+                          <Edit className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => handleDeleteSubMaster(s.id)} className="text-red-600 hover:text-red-900 mx-1 p-1">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                  {subEntities.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="text-center py-6 text-gray-500">Belum ada data sub entity.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </div>
@@ -823,9 +970,17 @@ export default function ProfitabilityManagementPage() {
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:border-blue-500 outline-none bg-white"
                   >
                     <option value="">Pilih Entity...</option>
-                    {master?.entities.map((m) => (
-                      <option key={m.id} value={m.id}>{m.name}</option>
-                    ))}
+                    {master?.entities.map((m) => {
+                      const entitySubEntities = subEntities.filter(s => s.entity_id === m.id);
+                      if (entitySubEntities.length > 0) {
+                        return entitySubEntities.map(sub => (
+                          <option key={`${m.id}|${sub.id}`} value={`${m.id}|${sub.id}`}>
+                            {m.name} - {sub.name}
+                          </option>
+                        ));
+                      }
+                      return <option key={m.id} value={m.id}>{m.name}</option>;
+                    })}
                   </select>
                 </div>
                 <div>
@@ -852,8 +1007,8 @@ export default function ProfitabilityManagementPage() {
                 </div>
               </div>
 
-              <DynamicInputSection title="Pendapatan" field="pendapatan" items={currentDraft.pendapatan} total={totalPendapatan} onAdd={addItem} onUpdate={updateItem} onRemove={removeItem} />
-              <DynamicInputSection title="Harga Pokok Penjualan (HPP)" field="hpp" items={currentDraft.hpp} total={totalHPP} onAdd={addItem} onUpdate={updateItem} onRemove={removeItem} />
+              <DynamicInputSection title="Pendapatan" field="pendapatan" items={currentDraft.pendapatan} total={totalPendapatan} onAdd={addItem} onUpdate={updateItem} onRemove={removeItem} onConfirmDelete={showConfirm} />
+              <DynamicInputSection title="Harga Pokok Penjualan (HPP)" field="hpp" items={currentDraft.hpp} total={totalHPP} onAdd={addItem} onUpdate={updateItem} onRemove={removeItem} onConfirmDelete={showConfirm} />
               
               <div className="mb-6 bg-white border border-gray-200 rounded-xl p-4 flex justify-between items-center shadow-sm">
                 <h3 className="font-bold text-slate-800">Laba Kotor</h3>
@@ -862,9 +1017,9 @@ export default function ProfitabilityManagementPage() {
 
               <div className="mb-6">
                 <h2 className="text-lg font-bold mb-3 text-slate-800 pl-1">Biaya Overhead</h2>
-                <DynamicInputSection title="Biaya Marketing" field="biaya_marketing" items={currentDraft.biaya_marketing} total={totalMarketing} onAdd={addItem} onUpdate={updateItem} onRemove={removeItem} />
-                <DynamicInputSection title="Biaya Admin & Umum" field="biaya_admin" items={currentDraft.biaya_admin} total={totalAdmin} onAdd={addItem} onUpdate={updateItem} onRemove={removeItem} />
-                <DynamicInputSection title="Biaya Non Operasional" field="biaya_non_ops" items={currentDraft.biaya_non_ops} total={totalNonOps} onAdd={addItem} onUpdate={updateItem} onRemove={removeItem} />
+                <DynamicInputSection title="Biaya Marketing" field="biaya_marketing" items={currentDraft.biaya_marketing} total={totalMarketing} onAdd={addItem} onUpdate={updateItem} onRemove={removeItem} onConfirmDelete={showConfirm} />
+                <DynamicInputSection title="Biaya Admin & Umum" field="biaya_admin" items={currentDraft.biaya_admin} total={totalAdmin} onAdd={addItem} onUpdate={updateItem} onRemove={removeItem} onConfirmDelete={showConfirm} />
+                <DynamicInputSection title="Biaya Non Operasional" field="biaya_non_ops" items={currentDraft.biaya_non_ops} total={totalNonOps} onAdd={addItem} onUpdate={updateItem} onRemove={removeItem} onConfirmDelete={showConfirm} />
                 
                 <div className="bg-slate-100 border border-slate-200 rounded-xl p-4 flex justify-between items-center shadow-sm">
                   <h3 className="font-bold text-slate-800">Total Biaya Overhead</h3>
@@ -879,8 +1034,8 @@ export default function ProfitabilityManagementPage() {
                 </span>
               </div>
 
-              <DynamicInputSection title="Pendapatan Lain" field="pendapatan_lain" items={currentDraft.pendapatan_lain} total={totalPendapatanLain} onAdd={addItem} onUpdate={updateItem} onRemove={removeItem} />
-              <DynamicInputSection title="Biaya Lain (Bunga, dll)" field="biaya_lain" items={currentDraft.biaya_lain} total={totalBiayaLain} onAdd={addItem} onUpdate={updateItem} onRemove={removeItem} />
+              <DynamicInputSection title="Pendapatan Lain" field="pendapatan_lain" items={currentDraft.pendapatan_lain} total={totalPendapatanLain} onAdd={addItem} onUpdate={updateItem} onRemove={removeItem} onConfirmDelete={showConfirm} />
+              <DynamicInputSection title="Biaya Lain (Bunga, dll)" field="biaya_lain" items={currentDraft.biaya_lain} total={totalBiayaLain} onAdd={addItem} onUpdate={updateItem} onRemove={removeItem} onConfirmDelete={showConfirm} />
 
               <div className="mb-6 bg-white border border-gray-200 rounded-xl p-4 flex justify-between items-center shadow-sm">
                 <h3 className="font-bold text-slate-800">Laba Bersih Sebelum Pajak</h3>
@@ -889,7 +1044,7 @@ export default function ProfitabilityManagementPage() {
                 </span>
               </div>
               
-              <DynamicInputSection title="Pajak" field="pajak" items={currentDraft.pajak} total={totalPajak} onAdd={addItem} onUpdate={updateItem} onRemove={removeItem} />
+              <DynamicInputSection title="Pajak" field="pajak" items={currentDraft.pajak} total={totalPajak} onAdd={addItem} onUpdate={updateItem} onRemove={removeItem} onConfirmDelete={showConfirm} />
 
               <div className="mb-2 bg-blue-600 rounded-xl p-5 flex justify-between items-center shadow-md text-white">
                 <h3 className="text-lg font-bold">Laba Bersih Setelah Pajak</h3>
@@ -915,11 +1070,11 @@ export default function ProfitabilityManagementPage() {
                 {!isEditMode && drafts.length > 1 && (
                   <button 
                     onClick={() => {
-                      if(window.confirm("Hapus draft ini?")) {
+                      showConfirm("Hapus draft ini?", () => {
                         const newDrafts = drafts.filter((_, i) => i !== currentDraftIndex);
                         setDrafts(newDrafts);
                         setCurrentDraftIndex(Math.max(0, currentDraftIndex - 1));
-                      }
+                      });
                     }}
                     className="px-3 py-2 rounded-lg border border-red-200 bg-red-50 text-red-600 flex items-center justify-center hover:bg-red-100 transition-colors text-sm font-semibold shadow-sm"
                     title="Hapus Draft Ini"
@@ -952,7 +1107,7 @@ export default function ProfitabilityManagementPage() {
       {/* Detail Modal */}
       {selectedDetail && (
         (() => {
-          const getSum = (items: any[]) => items ? items.reduce((acc, curr) => acc + (curr.amount || 0), 0) : 0;
+          const getSum = (items: any[]) => items ? items.reduce((acc, curr) => acc + Math.abs(parseFloat(curr.amount) || 0), 0) : 0;
           const totalPendapatan = getSum(selectedDetail.pendapatan_items);
           const totalHpp = getSum(selectedDetail.hpp_items);
           const labaKotor = totalPendapatan - totalHpp;
@@ -1251,6 +1406,92 @@ export default function ProfitabilityManagementPage() {
           </div>
         </div>
       )}
+      {/* Add Sub Master Modal */}
+      {isAddSubMasterModalOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white shadow-xl p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-bold text-slate-800">Tambah Sub Entity</h3>
+              <button onClick={() => setIsAddSubMasterModalOpen(false)} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">Entity Utama</label>
+                <select value={newSubMasterEntityId} onChange={e => setNewSubMasterEntityId(e.target.value)} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:border-blue-500">
+                  <option value="">Pilih Entity Utama...</option>
+                  {master?.entities.map((m: any) => <option key={m.id} value={m.id}>{m.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">Nama Sub Entity</label>
+                <input type="text" value={newSubMasterName} onChange={e => setNewSubMasterName(e.target.value)} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:border-blue-500 uppercase" placeholder="Contoh: TANABAMBU" />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">Kode (Opsional)</label>
+                <input type="text" value={newSubMasterCode} onChange={e => setNewSubMasterCode(e.target.value)} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:border-blue-500 uppercase" placeholder="Contoh: TNBM" />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">Status</label>
+                <select value={newSubMasterStatus} onChange={e => setNewSubMasterStatus(Number(e.target.value))} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:border-blue-500">
+                  <option value={1}>Active</option>
+                  <option value={0}>Inactive</option>
+                </select>
+              </div>
+            </div>
+            <div className="mt-6 flex justify-end gap-2">
+              <button onClick={() => setIsAddSubMasterModalOpen(false)} className="px-4 py-2 text-slate-600 font-semibold hover:bg-slate-100 rounded-lg text-sm">Batal</button>
+              <button onClick={handleAddSubMaster} className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg text-sm">Simpan</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Sub Master Modal */}
+      {isEditSubMasterModalOpen && editingSubMasterId && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white shadow-xl p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-bold text-slate-800">Edit Sub Entity</h3>
+              <button onClick={() => setIsEditSubMasterModalOpen(false)} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">Entity Utama</label>
+                <select value={editSubMasterEntityId} onChange={e => setEditSubMasterEntityId(e.target.value)} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:border-blue-500">
+                  <option value="">Pilih Entity Utama...</option>
+                  {master?.entities.map((m: any) => <option key={m.id} value={m.id}>{m.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">Nama Sub Entity</label>
+                <input type="text" value={editSubMasterName} onChange={e => setEditSubMasterName(e.target.value)} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:border-blue-500 uppercase" />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">Kode (Opsional)</label>
+                <input type="text" value={editSubMasterCode} onChange={e => setEditSubMasterCode(e.target.value)} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:border-blue-500 uppercase" />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">Status</label>
+                <select value={editSubMasterStatus} onChange={e => setEditSubMasterStatus(Number(e.target.value))} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:border-blue-500">
+                  <option value={1}>Active</option>
+                  <option value={0}>Inactive</option>
+                </select>
+              </div>
+            </div>
+            <div className="mt-6 flex justify-end gap-2">
+              <button onClick={() => setIsEditSubMasterModalOpen(false)} className="px-4 py-2 text-slate-600 font-semibold hover:bg-slate-100 rounded-lg text-sm">Batal</button>
+              <button onClick={() => handleUpdateSubMaster(editingSubMasterId)} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg text-sm">Simpan</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        message={confirmModal.message}
+        onConfirm={confirmModal.onConfirm}
+        onCancel={() => setConfirmModal({ ...confirmModal, isOpen: false })}
+      />
     </>
   );
 }

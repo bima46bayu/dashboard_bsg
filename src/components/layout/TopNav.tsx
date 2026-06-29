@@ -70,7 +70,7 @@ export default function TopNav() {
             className={({ isActive }) => cn("nav-item", isActive && "active")}
           >
             <link.icon className="h-4 w-4" />
-            <span className="hidden xl:inline">{link.label}</span>
+            <span className="inline">{link.label}</span>
           </NavLink>
         );
       })}
@@ -84,9 +84,11 @@ function NavDropdown({
   item: Extract<NavItem, { kind: "dropdown" }>;
 }) {
   const [open, setOpen] = useState(false);
+  const [coords, setCoords] = useState({ top: 0, left: 0 });
   const location = useLocation();
   const navigate = useNavigate();
   const ref = useRef<HTMLDivElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   const isActive =
     location.pathname === item.basePath ||
@@ -95,18 +97,29 @@ function NavDropdown({
   useEffect(() => {
     if (!open) return;
     const onDown = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false);
+      if (
+        (ref.current && ref.current.contains(e.target as Node)) ||
+        (dropdownRef.current && dropdownRef.current.contains(e.target as Node))
+      ) {
+        return;
       }
+      setOpen(false);
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setOpen(false);
     };
+    const onScroll = () => setOpen(false);
+
     document.addEventListener("mousedown", onDown);
     document.addEventListener("keydown", onKey);
+    window.addEventListener("scroll", onScroll, true);
+    window.addEventListener("resize", onScroll);
+    
     return () => {
       document.removeEventListener("mousedown", onDown);
       document.removeEventListener("keydown", onKey);
+      window.removeEventListener("scroll", onScroll, true);
+      window.removeEventListener("resize", onScroll);
     };
   }, [open]);
 
@@ -114,17 +127,28 @@ function NavDropdown({
     setOpen(false);
   }, [location.pathname]);
 
+  const handleToggle = () => {
+    if (!open && ref.current) {
+      const rect = ref.current.getBoundingClientRect();
+      setCoords({
+        top: rect.bottom + 10,
+        left: rect.left + rect.width / 2,
+      });
+    }
+    setOpen((o) => !o);
+  };
+
   return (
     <div ref={ref} className="relative">
       <button
         type="button"
         aria-haspopup="menu"
         aria-expanded={open}
-        onClick={() => setOpen((o) => !o)}
+        onClick={handleToggle}
         className={cn("nav-item", isActive && "active")}
       >
         <item.icon className="h-4 w-4" />
-        <span className="hidden xl:inline">{item.label}</span>
+        <span className="inline">{item.label}</span>
         <ChevronDown
           className={cn(
             "h-3.5 w-3.5 transition-transform",
@@ -133,10 +157,12 @@ function NavDropdown({
         />
       </button>
 
-      {open && (
+      {open && typeof document !== "undefined" && (
         <div
+          ref={dropdownRef}
           role="menu"
-          className="absolute left-1/2 top-[calc(100%+10px)] z-50 w-60 -translate-x-1/2 rounded-2xl border border-line bg-bg-surface p-1.5 shadow-card"
+          style={{ top: coords.top, left: coords.left }}
+          className="fixed z-[100] w-60 -translate-x-1/2 rounded-2xl border border-line bg-bg-surface p-1.5 shadow-card"
         >
           {item.children.map((c) => {
             const active = c.end

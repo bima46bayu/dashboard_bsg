@@ -98,3 +98,27 @@ export async function importProfitabilitiesExcel(file: File) {
 
   return res.json();
 }
+
+export async function fetchProfitabilitySubEntities() {
+  return await apiFetch<any[]>("/api/profitabilities/sub-entities");
+}
+
+export async function saveProfitabilitySubEntity(payload: any) {
+  return await apiFetch<any>("/api/profitabilities/sub-entities", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updateProfitabilitySubEntity(id: number, payload: any) {
+  return await apiFetch<any>(`/api/profitabilities/sub-entities/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteProfitabilitySubEntity(id: number) {
+  return await apiFetch<any>(`/api/profitabilities/sub-entities/${id}`, {
+    method: "DELETE",
+  });
+}

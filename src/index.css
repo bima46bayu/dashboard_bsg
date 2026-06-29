@@ -46,11 +46,22 @@
   }
 
   .nav-pill {
-    @apply relative inline-flex items-center gap-1 rounded-full bg-ink p-1.5;
+    @apply relative inline-flex items-center gap-1 rounded-full bg-ink p-1.5 overflow-x-auto whitespace-nowrap max-w-full;
+    scrollbar-width: thin;
+  }
+  .nav-pill::-webkit-scrollbar {
+    height: 4px;
+  }
+  .nav-pill::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+  }
+  .nav-pill::-webkit-scrollbar-track {
+    background: transparent;
   }
 
   .nav-item {
-    @apply relative inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium text-white/70 transition-colors hover:text-white;
+    @apply relative inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] sm:text-xs font-medium text-white/70 transition-colors hover:text-white;
   }
 
   .nav-item.active {
