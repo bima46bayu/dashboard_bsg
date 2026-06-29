@@ -146,6 +146,20 @@ export async function deleteRealization(id: number) {
   return apiFetch(`/api/sales/realizations/${id}`, { method: "DELETE" });
 }
 
+export async function updateTarget(id: number, data: any) {
+  return apiFetch(`/api/sales/targets/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateRealization(id: number, data: any) {
+  return apiFetch(`/api/sales/realizations/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(data),
+  });
+}
+
 import { apiUrl } from "@/lib/api";
 import { authHeaders } from "@/lib/auth";
 

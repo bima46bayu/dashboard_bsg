@@ -9,6 +9,7 @@ import SalesPage from "@/pages/SalesPage";
 import InventoryPage from "@/pages/InventoryPage";
 import ProjectPage from "@/pages/ProjectPage";
 import ProfitabilityPage from "@/pages/ProfitabilityPage";
+import ProfitabilityManagementPage from "@/pages/ProfitabilityManagementPage";
 import SalesManagementPage from "@/pages/SalesManagementPage";
 import AssetPage from "@/pages/AssetPage";
 import DocumentPage from "@/pages/DocumentPage";
@@ -65,6 +66,10 @@ export default function App() {
                           <Route
                             path="profitability"
                             element={<ProfitabilityPage />}
+                          />
+                          <Route
+                            path="profitability/manage"
+                            element={<ProfitabilityManagementPage />}
                           />
                           <Route path="asset" element={<AssetPage />} />
                           <Route path="document" element={<DocumentPage />} />

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
-import { X, Plus, Upload, Download, FileText, ArrowLeft, Search, User, Save, ChevronLeft, ChevronRight } from "lucide-react";
+import { X, Plus, Upload, Download, FileText, ArrowLeft, Search, User, Save, ChevronLeft, ChevronRight, Trash2, Eye, Edit } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageShell";
 import {
   fetchTargets,
@@ -9,6 +9,8 @@ import {
   saveRealizations,
   deleteTarget,
   deleteRealization,
+  updateTarget,
+  updateRealization,
   importTargetsExcel,
   importRealizationsExcel,
   fetchMasterList,
@@ -33,7 +35,7 @@ export default function SalesManagementPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   // Modals
-  const [isAddOpen, setIsAddOpen] = useState(false);
+  const [modalMode, setModalMode] = useState<'add' | 'edit' | 'detail' | null>(null);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [exportFilter, setExportFilter] = useState({
@@ -43,9 +45,14 @@ export default function SalesManagementPage() {
     end_month: new Date().getMonth() + 1,
   });
   
+  const MONTHS = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+
   const currentYear = new Date().getFullYear();
   const currentMonth = new Date().getMonth() + 1;
-  const [draft, setDraft] = useState<any>({ year: currentYear, month: currentMonth, sales_member_name: '', entity_name: '', end_user_name: '', amount: '' });
+  const createEmptySalesDraft = () => ({ year: currentYear, month: currentMonth, sales_member_name: '', entity_name: '', end_user_name: '', amount: '' });
+  const [drafts, setDrafts] = useState<any[]>([createEmptySalesDraft()]);
+
+  const [currentDraftIndex, setCurrentDraftIndex] = useState(0);
 
   // Master Modals
   const [masterType, setMasterType] = useState<string | null>(null);
@@ -159,20 +166,46 @@ export default function SalesManagementPage() {
   };
 
   const openAddModal = () => {
-    setDraft({ year: currentYear, month: currentMonth, sales_member_name: '', entity_name: '', end_user_name: '', amount: '' });
-    setIsAddOpen(true);
+    setDrafts([createEmptySalesDraft()]);
+    setCurrentDraftIndex(0);
+    setModalMode('add');
   };
 
-  const handleSaveDraft = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const openActionModal = (item: any, mode: 'edit' | 'detail') => {
+    setDrafts([{
+      id: item.id,
+      year: item.year,
+      month: item.month,
+      sales_member_name: item.sales_member?.name || item.sales_member_name || '',
+      entity_name: item.entity?.name || item.entity_name || '',
+      end_user_name: item.end_user?.name || item.end_user_name || '',
+      amount: item.target_amount || item.realization_amount || ''
+    }]);
+    setCurrentDraftIndex(0);
+    setModalMode(mode);
+  };
+
+  const handleSaveDraft = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     try {
-      if (activeTab === "target") {
-        await saveTargets([{ ...draft, target_amount: Number(draft.amount) }]);
+      if (modalMode === 'edit') {
+        const d = drafts[0];
+        if (activeTab === "target") {
+          await updateTarget(d.id, { ...d, target_amount: Number(d.amount) });
+        } else {
+          await updateRealization(d.id, { ...d, realization_amount: Number(d.amount) });
+        }
       } else {
-        await saveRealizations([{ ...draft, realization_amount: Number(draft.amount) }]);
+        if (activeTab === "target") {
+          const payload = drafts.map(d => ({ ...d, target_amount: Number(d.amount) }));
+          await saveTargets(payload);
+        } else {
+          const payload = drafts.map(d => ({ ...d, realization_amount: Number(d.amount) }));
+          await saveRealizations(payload);
+        }
       }
-      setIsAddOpen(false);
-      loadList();
+      setModalMode(null);
+      loadList(1);
     } catch (error) {
       toast.error("Gagal menyimpan data");
     }
@@ -355,9 +388,15 @@ export default function SalesManagementPage() {
                             <td className="px-4 py-2.5 whitespace-nowrap text-xs text-emerald-600 font-semibold text-right">
                               Rp {Number(item.target_amount || item.realization_amount).toLocaleString('id-ID')}
                             </td>
-                            <td className="px-4 py-2.5 whitespace-nowrap text-xs text-center">
-                              <button onClick={() => handleDelete(item.id)} className="text-red-600 hover:text-red-900 mx-1">
-                                Hapus
+                            <td className="px-4 py-2.5 whitespace-nowrap text-xs text-center flex items-center justify-center gap-1.5">
+                              <button onClick={() => openActionModal(item, 'detail')} className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 p-1.5 rounded-lg transition" title="Detail">
+                                <Eye className="w-4 h-4" />
+                              </button>
+                              <button onClick={() => openActionModal(item, 'edit')} className="text-amber-500 hover:text-amber-700 hover:bg-amber-50 p-1.5 rounded-lg transition" title="Edit">
+                                <Edit className="w-4 h-4" />
+                              </button>
+                              <button onClick={() => handleDelete(item.id)} className="text-red-500 hover:text-red-700 hover:bg-red-50 p-1.5 rounded-lg transition" title="Hapus">
+                                <Trash2 className="w-4 h-4" />
                               </button>
                             </td>
                           </tr>
@@ -520,56 +559,150 @@ export default function SalesManagementPage() {
         )}
       </div>
 
-      {/* Add Target / Realisasi Modal */}
-      {isAddOpen && (
+      {/* Add/Edit/Detail Target / Realisasi Modal */}
+      {modalMode && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-md rounded-2xl bg-white shadow-xl overflow-hidden flex flex-col">
-            <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
-              <h3 className="text-lg font-bold text-slate-800">Tambah {activeTab === 'target' ? 'Target' : 'Realisasi'}</h3>
-              <button onClick={() => setIsAddOpen(false)} className="rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition">
+          <div className="w-full max-w-md rounded-2xl bg-white shadow-xl flex flex-col max-h-[90vh]">
+            <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4 shrink-0 rounded-t-2xl bg-white">
+              <h3 className="text-lg font-bold text-slate-800 capitalize">{modalMode} {activeTab === 'target' ? 'Target' : 'Realisasi'}</h3>
+              
+              {modalMode === 'add' && (
+                <div className="flex items-center gap-3 px-4 py-1.5 bg-slate-100 rounded-full">
+                  <button 
+                    type="button"
+                    onClick={() => setCurrentDraftIndex(Math.max(0, currentDraftIndex - 1))}
+                    disabled={currentDraftIndex === 0}
+                    className="text-slate-500 hover:text-slate-800 disabled:opacity-30 disabled:hover:text-slate-500"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  <span className="text-xs font-bold text-slate-700">
+                    Draft ke-{currentDraftIndex + 1} dari {drafts.length}
+                  </span>
+                  <button 
+                    type="button"
+                    onClick={() => setCurrentDraftIndex(Math.min(drafts.length - 1, currentDraftIndex + 1))}
+                    disabled={currentDraftIndex === drafts.length - 1}
+                    className="text-slate-500 hover:text-slate-800 disabled:opacity-30 disabled:hover:text-slate-500"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+
+              <button onClick={() => setModalMode(null)} className="rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition">
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <form onSubmit={handleSaveDraft} className="p-6 space-y-4">
+            <div className="p-6 space-y-4 overflow-y-auto grow bg-white">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Tahun</label>
-                  <input type="number" required value={draft.year} onChange={e => setDraft({...draft, year: Number(e.target.value)})} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:border-blue-500 outline-none" />
+                  {modalMode === 'detail' ? (
+                    <div className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 font-semibold">{drafts[currentDraftIndex].year}</div>
+                  ) : (
+                    <input type="number" required value={drafts[currentDraftIndex].year} onChange={e => { const newDrafts = [...drafts]; newDrafts[currentDraftIndex].year = Number(e.target.value); setDrafts(newDrafts); }} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:border-blue-500 outline-none" />
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Bulan</label>
-                  <input type="number" required min="1" max="12" value={draft.month} onChange={e => setDraft({...draft, month: Number(e.target.value)})} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:border-blue-500 outline-none" />
+                  {modalMode === 'detail' ? (
+                    <div className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 font-semibold">{MONTHS[drafts[currentDraftIndex].month - 1]}</div>
+                  ) : (
+                    <select 
+                      required 
+                      value={drafts[currentDraftIndex].month} 
+                      onChange={e => { const newDrafts = [...drafts]; newDrafts[currentDraftIndex].month = Number(e.target.value); setDrafts(newDrafts); }} 
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:border-blue-500 outline-none bg-white"
+                    >
+                      {[...Array(12)].map((_, i) => (
+                        <option key={i} value={i + 1}>{MONTHS[i]}</option>
+                      ))}
+                    </select>
+                  )}
                 </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Sales Member</label>
-                <input list="sales-list" required value={draft.sales_member_name} onChange={e => setDraft({...draft, sales_member_name: e.target.value})} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:border-blue-500 outline-none" />
+                {modalMode === 'detail' ? (
+                  <div className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 font-semibold">{drafts[currentDraftIndex].sales_member_name || '-'}</div>
+                ) : (
+                  <input list="sales-list" required value={drafts[currentDraftIndex].sales_member_name} onChange={e => { const newDrafts = [...drafts]; newDrafts[currentDraftIndex].sales_member_name = e.target.value; setDrafts(newDrafts); }} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:border-blue-500 outline-none" />
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Entity</label>
-                <input list="entities-list" required value={draft.entity_name} onChange={e => setDraft({...draft, entity_name: e.target.value})} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:border-blue-500 outline-none" />
+                {modalMode === 'detail' ? (
+                  <div className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 font-semibold">{drafts[currentDraftIndex].entity_name || '-'}</div>
+                ) : (
+                  <input list="entities-list" required value={drafts[currentDraftIndex].entity_name} onChange={e => { const newDrafts = [...drafts]; newDrafts[currentDraftIndex].entity_name = e.target.value; setDrafts(newDrafts); }} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:border-blue-500 outline-none" />
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">End User</label>
-                <input list="enduser-list" required value={draft.end_user_name} onChange={e => setDraft({...draft, end_user_name: e.target.value})} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:border-blue-500 outline-none" />
+                {modalMode === 'detail' ? (
+                  <div className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 font-semibold">{drafts[currentDraftIndex].end_user_name || '-'}</div>
+                ) : (
+                  <input list="enduser-list" required value={drafts[currentDraftIndex].end_user_name} onChange={e => { const newDrafts = [...drafts]; newDrafts[currentDraftIndex].end_user_name = e.target.value; setDrafts(newDrafts); }} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:border-blue-500 outline-none" />
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Amount (Rp)</label>
-                <input type="number" required value={draft.amount} onChange={e => setDraft({...draft, amount: e.target.value})} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:border-blue-500 outline-none" />
+                {modalMode === 'detail' ? (
+                  <div className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-lg text-emerald-600 font-bold tracking-wide">
+                    Rp {Number(drafts[currentDraftIndex].amount).toLocaleString('id-ID')}
+                  </div>
+                ) : (
+                  <input type="number" required value={drafts[currentDraftIndex].amount} onChange={e => { const newDrafts = [...drafts]; newDrafts[currentDraftIndex].amount = e.target.value; setDrafts(newDrafts); }} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:border-blue-500 outline-none" />
+                )}
               </div>
+            </div>
               
-              <div className="flex gap-3 w-full mt-6 pt-4 border-t">
-                <button type="button" onClick={() => setIsAddOpen(false)} className="flex-1 bg-white border border-slate-300 text-slate-700 py-2.5 rounded-lg text-sm font-semibold hover:bg-slate-50 transition">
-                  Batal
-                </button>
-                <button type="submit" className="flex-1 bg-blue-600 text-white py-2.5 rounded-lg text-sm font-semibold hover:bg-blue-700 transition flex items-center justify-center gap-2">
-                  <Save className="w-4 h-4" /> Simpan
-                </button>
+            <div className="flex items-center justify-between border-t border-gray-200 px-6 py-4 bg-white rounded-b-2xl shrink-0">
+              <div className="flex gap-2">
+                {modalMode === 'add' && (
+                  <button 
+                    type="button"
+                    onClick={() => { setDrafts([...drafts, createEmptySalesDraft()]); setCurrentDraftIndex(drafts.length); }}
+                    className="px-4 py-2 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 flex items-center justify-center hover:bg-blue-100 transition-colors text-sm font-semibold shadow-sm"
+                    title="Tambah Draft Baru"
+                  >
+                    <Plus className="w-4 h-4 mr-1.5" /> Tambah Draft
+                  </button>
+                )}
+                {modalMode === 'add' && drafts.length > 1 && (
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      if(window.confirm("Hapus draft ini?")) {
+                        const newDrafts = drafts.filter((_, i) => i !== currentDraftIndex);
+                        setDrafts(newDrafts);
+                        setCurrentDraftIndex(Math.max(0, currentDraftIndex - 1));
+                      }
+                    }}
+                    className="px-3 py-2 rounded-lg border border-red-200 bg-red-50 text-red-600 flex items-center justify-center hover:bg-red-100 transition-colors text-sm font-semibold shadow-sm"
+                    title="Hapus Draft Ini"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
               </div>
-            </form>
+
+              <div className="flex gap-3">
+                <button type="button" onClick={() => setModalMode(null)} className="px-6 py-2.5 bg-white border border-slate-300 text-slate-700 rounded-lg text-sm font-semibold hover:bg-slate-50 transition">
+                  {modalMode === 'detail' ? 'Tutup' : 'Batal'}
+                </button>
+                {modalMode !== 'detail' && (
+                  <button type="button" onClick={handleSaveDraft} className="px-6 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 transition flex items-center gap-2">
+                    <Save className="w-4 h-4" /> {modalMode === 'edit' ? 'Update' : 'Simpan Semua'}
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       )}
+
 
       {/* Add Master Modal */}
       {isAddMasterModalOpen && (

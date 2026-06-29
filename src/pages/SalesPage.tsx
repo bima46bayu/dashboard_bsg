@@ -237,6 +237,38 @@ export default function SalesPage() {
               </CardBody>
             </Card>
 
+            {/* Entity Performance Trends */}
+            <div className="col-span-12 min-w-0">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
+                <h3 className="text-lg font-semibold text-slate-800">Entity Performance Trends</h3>
+                <div className="bg-slate-100 p-1 rounded-lg flex inline-block shadow-sm">
+                  <button onClick={() => setTrendView('monthly')} className={`px-4 py-1.5 text-xs font-medium rounded-md transition-all duration-200 ${trendView === 'monthly' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>Berdasarkan Bulan</button>
+                  <button onClick={() => setTrendView('yearly')} className={`px-4 py-1.5 text-xs font-medium rounded-md transition-all duration-200 ${trendView === 'yearly' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>Berdasarkan Tahun</button>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                {trendView === 'monthly' && data.entity_trends_monthly?.map((trend, idx) => (
+                  <div key={`m-${idx}`} className="bg-white rounded-2xl shadow-sm border border-line p-5 min-w-0 shadow-card">
+                    <div className="text-sm font-semibold text-slate-700 mb-4 text-center">{trend.entity}</div>
+                    <SmallLineChart
+                      data={trend.data.map(d => ({ label: months[d.month - 1].substring(0, 3), target: d.target, realization: d.realization }))}
+                      color={['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ec4899', '#06b6d4', '#6366f1', '#14b8a6'][idx % 8]}
+                    />
+                  </div>
+                ))}
+                {trendView === 'yearly' && data.entity_trends_yearly?.map((trend, idx) => (
+                  <div key={`y-${idx}`} className="bg-white rounded-2xl shadow-sm border border-line p-5 min-w-0 shadow-card">
+                    <div className="text-sm font-semibold text-slate-700 mb-4 text-center">{trend.entity}</div>
+                    <SmallLineChart
+                      data={trend.data}
+                      color={['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ec4899', '#06b6d4', '#6366f1', '#14b8a6'][idx % 8]}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+
             <Card className="col-span-12 lg:col-span-6 min-w-0">
               <CardHeader title="Team Achievement" />
               <CardBody className="pt-2">
@@ -319,37 +351,6 @@ export default function SalesPage() {
             </div>
           </Card>
 
-          {/* Entity Performance Trends */}
-          <div className="mb-8">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold text-slate-800">Entity Performance Trends</h3>
-              <div className="bg-slate-100 p-1 rounded-lg flex inline-block shadow-sm">
-                <button onClick={() => setTrendView('monthly')} className={`px-4 py-1.5 text-xs font-medium rounded-md transition-all duration-200 ${trendView === 'monthly' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>Berdasarkan Bulan</button>
-                <button onClick={() => setTrendView('yearly')} className={`px-4 py-1.5 text-xs font-medium rounded-md transition-all duration-200 ${trendView === 'yearly' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>Berdasarkan Tahun</button>
-              </div>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-              {trendView === 'monthly' && data.entity_trends_monthly?.map((trend, idx) => (
-                <div key={`m-${idx}`} className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 min-w-0">
-                  <div className="text-sm font-semibold text-slate-700 mb-4 text-center">{trend.entity}</div>
-                  <SmallLineChart
-                    data={trend.data.map(d => ({ label: months[d.month - 1].substring(0, 3), target: d.target, realization: d.realization }))}
-                    color={['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ec4899', '#06b6d4', '#6366f1', '#14b8a6'][idx % 8]}
-                  />
-                </div>
-              ))}
-              {trendView === 'yearly' && data.entity_trends_yearly?.map((trend, idx) => (
-                <div key={`y-${idx}`} className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 min-w-0">
-                  <div className="text-sm font-semibold text-slate-700 mb-4 text-center">{trend.entity}</div>
-                  <SmallLineChart
-                    data={trend.data}
-                    color={['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ec4899', '#06b6d4', '#6366f1', '#14b8a6'][idx % 8]}
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
 
           {/* Pivot Tables */}
           {(() => {

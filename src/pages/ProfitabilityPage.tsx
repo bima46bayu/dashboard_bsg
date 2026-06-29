@@ -1,8 +1,9 @@
-import { useState } from "react";
-import { Coins, TrendingDown, TrendingUp, PiggyBank } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Coins, TrendingDown, TrendingUp, PiggyBank, Plus, RefreshCcw } from "lucide-react";
+import { Link } from "react-router-dom";
 import { PageHeader } from "@/components/layout/PageShell";
 import StatCard from "@/components/ui/StatCard";
-import AreaChartCard from "@/components/ui/AreaChartCard";
+import ProfitabilityTrendChart from "@/components/ui/ProfitabilityTrendChart";
 import DonutChart from "@/components/ui/DonutChart";
 import DataTable, { type Column } from "@/components/ui/DataTable";
 import Badge from "@/components/ui/Badge";
@@ -10,58 +11,80 @@ import {
   Card,
   CardBody,
   CardHeader,
-  FilterChip,
-  RangeTabs,
 } from "@/components/ui/Card";
 import { formatCurrency } from "@/lib/format";
-import { makeSeries, months, toLabeled } from "@/data/mock";
+import { fetchProfitabilityDashboard } from "@/api/profitability";
+import { months } from "@/data/mock";
 
-type LineRow = {
+type EntityMarginRow = {
   id: string;
-  segment: string;
+  entity: string;
   revenue: number;
   cogs: number;
-  margin: number;
-  ytd: number;
+  gross_margin: number;
+  net_margin: number;
 };
 
-const rows: LineRow[] = [
-  { id: "1", segment: "Industrial Pumps", revenue: 1820000, cogs: 980000, margin: 46.2, ytd: 6.4 },
-  { id: "2", segment: "Filtration", revenue: 1240000, cogs: 720000, margin: 41.9, ytd: 3.2 },
-  { id: "3", segment: "Valves & Couplings", revenue: 980000, cogs: 580000, margin: 40.8, ytd: -1.1 },
-  { id: "4", segment: "Services", revenue: 740000, cogs: 240000, margin: 67.6, ytd: 8.8 },
-  { id: "5", segment: "Spare Parts", revenue: 520000, cogs: 360000, margin: 30.8, ytd: 1.5 },
-];
-
-const cols: Column<LineRow>[] = [
-  { key: "segment", header: "Segment", render: (r) => <span className="font-medium">{r.segment}</span> },
+const cols: Column<EntityMarginRow>[] = [
+  { key: "entity", header: "Entity", render: (r) => <span className="font-medium">{r.entity}</span> },
   { key: "rev", header: "Revenue", align: "right", render: (r) => formatCurrency(r.revenue) },
   { key: "cogs", header: "COGS", align: "right", render: (r) => formatCurrency(r.cogs) },
   {
-    key: "margin",
+    key: "gross_margin",
     header: "Gross Margin",
     align: "right",
     render: (r) => (
-      <Badge tone={r.margin >= 45 ? "good" : r.margin >= 35 ? "warn" : "bad"}>
-        {r.margin.toFixed(1)}%
+      <Badge tone={r.gross_margin >= 40 ? "good" : r.gross_margin >= 20 ? "warn" : "bad"}>
+        {r.gross_margin.toFixed(1)}%
       </Badge>
     ),
   },
   {
-    key: "ytd",
-    header: "YTD Δ",
+    key: "net_margin",
+    header: "Net Margin",
     align: "right",
     render: (r) => (
-      <span className={r.ytd >= 0 ? "text-good" : "text-bad"}>
-        {r.ytd >= 0 ? "+" : ""}
-        {r.ytd.toFixed(1)}%
-      </span>
+      <Badge tone={r.net_margin >= 15 ? "good" : r.net_margin >= 5 ? "warn" : "bad"}>
+        {r.net_margin.toFixed(1)}%
+      </Badge>
     ),
   },
 ];
 
 export default function ProfitabilityPage() {
-  const [range, setRange] = useState("6M");
+  const currentYear = new Date().getFullYear();
+  const [year, setYear] = useState<number>(currentYear);
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadDashboard();
+  }, [year]);
+
+  const loadDashboard = async () => {
+    setLoading(true);
+    try {
+      const res = await fetchProfitabilityDashboard(year);
+      setData(res);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading && !data) {
+    return <div className="p-8 text-center flex justify-center text-slate-500"><RefreshCcw className="animate-spin" /></div>;
+  }
+
+  const sum = data?.summary || { pendapatan: 0, laba_kotor: 0, laba_operasi: 0, laba_bersih: 0 };
+  const grossMarginPercent = sum.pendapatan > 0 ? (sum.laba_kotor / sum.pendapatan) * 100 : 0;
+  
+  const trendData = data?.trend?.map((t: any) => ({
+    label: months[t.month - 1],
+    ...t
+  })) || [];
+
   return (
     <>
       <PageHeader
@@ -69,44 +92,54 @@ export default function ProfitabilityPage() {
         subtitle="Margin analysis and cost-centre reporting"
         actions={
           <>
-            <FilterChip label="All units" />
-            <FilterChip label="FY 2026" />
+            <select 
+              value={year} 
+              onChange={e => setYear(Number(e.target.value))}
+              className="bg-white border border-slate-200 text-sm rounded-lg px-3 py-2 outline-none focus:border-blue-500 font-medium text-slate-700 shadow-sm"
+            >
+              {[...Array(5)].map((_, i) => (
+                <option key={i} value={currentYear - i}>{currentYear - i}</option>
+              ))}
+            </select>
+            <Link
+              to="/profitability/manage"
+              className="flex items-center gap-2 bg-slate-800 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-slate-700 transition ml-2 shadow-sm"
+            >
+              <Plus className="w-4 h-4" />
+              CMS
+            </Link>
           </>
         }
       />
       <div className="grid grid-cols-12 gap-4">
         <StatCard
           className="col-span-12 sm:col-span-6 lg:col-span-3"
-          label="Gross Margin"
-          value="46.2%"
-          delta={1.6}
-          series={makeSeries(20, 50, 6, 3, 0.2)}
+          label="Laba Kotor"
+          value={formatCurrency(sum.laba_kotor)}
+          delta={0}
           icon={<TrendingUp className="h-4 w-4" />}
           accent="mint"
         />
         <StatCard
           className="col-span-12 sm:col-span-6 lg:col-span-3"
-          label="Net Profit"
-          value={formatCurrency(842_000)}
-          delta={2.4}
-          series={makeSeries(20, 50, 12, 11)}
+          label="Laba Bersih Setelah Pajak"
+          value={formatCurrency(sum.laba_bersih)}
+          delta={0}
           icon={<PiggyBank className="h-4 w-4" />}
           accent="lime"
         />
         <StatCard
           className="col-span-12 sm:col-span-6 lg:col-span-3"
-          label="EBITDA"
-          value={formatCurrency(1_220_000)}
-          delta={0.9}
-          series={makeSeries(20, 50, 9, 31)}
+          label="Laba Sebelum Pajak"
+          value={formatCurrency(sum.laba_sebelum_pajak || sum.laba_operasi)}
+          delta={0}
           icon={<Coins className="h-4 w-4" />}
         />
         <StatCard
           className="col-span-12 sm:col-span-6 lg:col-span-3"
-          label="Cost per Unit"
-          value="$184"
-          delta={-1.1}
-          series={makeSeries(20, 50, 8, 41, -0.2)}
+          label="Pendapatan"
+          value={formatCurrency(sum.pendapatan)}
+          delta={0}
           icon={<TrendingDown className="h-4 w-4" />}
           accent="rose"
         />
@@ -114,18 +147,11 @@ export default function ProfitabilityPage() {
         <Card className="col-span-12 lg:col-span-8">
           <CardHeader
             title="P&L Trend"
-            subtitle="Revenue, costs, and net profit over time"
-            actions={
-              <RangeTabs
-                options={["3M", "6M", "1Y", "YTD"]}
-                value={range}
-                onChange={setRange}
-              />
-            }
+            subtitle="Revenue, Gross Profit, and Net Profit over time"
           />
           <CardBody className="pt-2">
-            <AreaChartCard
-              data={toLabeled(makeSeries(12, 600, 80, 23, 14), months.slice(0, 12))}
+            <ProfitabilityTrendChart
+              data={trendData}
               height={280}
             />
           </CardBody>
@@ -133,30 +159,25 @@ export default function ProfitabilityPage() {
 
         <Card className="col-span-12 lg:col-span-4">
           <CardHeader title="Cost Allocation" />
-          <CardBody className="pt-2">
-            <DonutChart
-              data={[
-                { name: "Materials", value: 42, color: "#DCF26B" },
-                { name: "Labour", value: 28, color: "#C2EAD4" },
-                { name: "Overhead", value: 18, color: "#BFE0F2" },
-                { name: "Logistics", value: 12, color: "#F4D9C2" },
-              ]}
-              centerLabel="of total cost"
-              centerValue="42%"
-            />
-            <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-              <LegendItem color="#DCF26B" label="Materials" />
-              <LegendItem color="#C2EAD4" label="Labour" />
-              <LegendItem color="#BFE0F2" label="Overhead" />
-              <LegendItem color="#F4D9C2" label="Logistics" />
-            </div>
+          <CardBody className="pt-2 flex flex-col items-center">
+            {data?.cost_allocation?.length > 0 ? (
+              <>
+                <DonutChart
+                  data={data.cost_allocation}
+                  centerLabel="Total Cost"
+                  centerValue={formatCurrency(data.cost_allocation.reduce((a: any, b: any) => a + b.value, 0)).split(',')[0]}
+                />
+              </>
+            ) : (
+              <div className="h-[280px] flex items-center justify-center text-slate-500 text-sm w-full bg-slate-50 rounded-lg">Belum ada data</div>
+            )}
           </CardBody>
         </Card>
 
         <Card className="col-span-12">
-          <CardHeader title="Margin by Segment" actions={<FilterChip label="Sort: Margin" />} />
+          <CardHeader title="Margin by Entity" />
           <CardBody className="pt-2">
-            <DataTable<LineRow> rows={rows} columns={cols} />
+            <DataTable<EntityMarginRow> rows={data?.entity_margin?.map((e: any) => ({ ...e, id: e.entity })) || []} columns={cols} />
           </CardBody>
         </Card>
       </div>
@@ -168,7 +189,7 @@ function LegendItem({ color, label }: { color: string; label: string }) {
   return (
     <div className="inline-flex items-center gap-1.5">
       <span className="h-2 w-2 rounded-full" style={{ background: color }} />
-      <span className="text-ink-soft">{label}</span>
+      <span className="text-ink-soft truncate" title={label}>{label}</span>
     </div>
   );
 }

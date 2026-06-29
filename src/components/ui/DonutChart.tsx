@@ -14,7 +14,7 @@ export default function DonutChart({
   centerValue?: string;
 }) {
   return (
-    <div className="relative" style={{ height }}>
+    <div className="relative w-full" style={{ height }}>
       <ResponsiveContainer width="100%" height="100%">
         <PieChart>
           <Pie
