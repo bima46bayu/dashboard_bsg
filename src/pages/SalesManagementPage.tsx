@@ -21,7 +21,6 @@ import {
   type MasterData,
 } from "@/api/sales";
 import { apiUrl } from "@/lib/api";
-import { formatCurrency } from "@/lib/format";
 import toast from "react-hot-toast";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import Pagination from "@/components/ui/Pagination";
