@@ -23,6 +23,7 @@ type EntityMarginRow = {
   cogs: number;
   gross_margin: number;
   net_margin: number;
+  subRows?: EntityMarginRow[];
 };
 
 const cols: Column<EntityMarginRow>[] = [
@@ -106,7 +107,7 @@ export default function ProfitabilityPage() {
               className="flex items-center gap-2 bg-slate-800 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-slate-700 transition ml-2 shadow-sm"
             >
               <Plus className="w-4 h-4" />
-              CMS
+              Input Data
             </Link>
           </>
         }
@@ -177,7 +178,16 @@ export default function ProfitabilityPage() {
         <Card className="col-span-12">
           <CardHeader title="Margin by Entity" />
           <CardBody className="pt-2">
-            <DataTable<EntityMarginRow> rows={data?.entity_margin?.map((e: any) => ({ ...e, id: e.entity })) || []} columns={cols} />
+            <DataTable<EntityMarginRow> 
+              rows={data?.entity_margin?.map(function mapRow(e: any): EntityMarginRow {
+                return {
+                  ...e,
+                  id: e.id || e.entity,
+                  subRows: e.subRows ? e.subRows.map(mapRow) : undefined
+                };
+              }) || []} 
+              columns={cols} 
+            />
           </CardBody>
         </Card>
       </div>

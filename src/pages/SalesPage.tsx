@@ -51,9 +51,11 @@ export default function SalesPage() {
 
   const [expandedEntities, setExpandedEntities] = useState<Record<string, boolean>>({});
   const [expandedAms, setExpandedAms] = useState<Record<string, boolean>>({});
+  const [expandedPivotAms, setExpandedPivotAms] = useState<Record<string, boolean>>({});
 
   const toggleEntity = (id: string) => setExpandedEntities(prev => ({ ...prev, [id]: !prev[id] }));
   const toggleAm = (id: string) => setExpandedAms(prev => ({ ...prev, [id]: !prev[id] }));
+  const togglePivotAm = (id: string) => setExpandedPivotAms(prev => ({ ...prev, [id]: !prev[id] }));
 
   // Filters
   const [filterYear, setFilterYear] = useState<string>("");
@@ -535,7 +537,10 @@ export default function SalesPage() {
                         {data.pivot_table?.by_am?.map((am: any, i: number) => (
                           <React.Fragment key={i}>
                             <tr className="bg-slate-100 font-semibold text-slate-800 border-b border-slate-200">
-                              <td className="border-r border-slate-200 px-4 py-2 text-left sticky left-0 bg-slate-100 z-10">{am.name}</td>
+                              <td className="border-r border-slate-200 px-4 py-2 text-left sticky left-0 bg-slate-100 z-10 cursor-pointer hover:bg-slate-200 flex items-center gap-2" onClick={() => togglePivotAm(`am-${i}`)}>
+                                {expandedPivotAms[`am-${i}`] ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                                {am.name}
+                              </td>
                               <td className="border-r border-slate-200 px-3 py-2">{am.prev?.target?.toLocaleString('id-ID')}</td>
                               <td className="border-r border-slate-200 px-3 py-2">{am.prev?.realization?.toLocaleString('id-ID')}</td>
                               <td className="border-r border-slate-200 px-3 py-2"><AchBadge target={am.prev?.target} real={am.prev?.realization} /></td>
@@ -546,7 +551,7 @@ export default function SalesPage() {
                               <td className="border-r border-slate-200 px-3 py-2">{am.total?.realization?.toLocaleString('id-ID')}</td>
                               <td className="px-3 py-2"><AchBadge target={am.total?.target} real={am.total?.realization} /></td>
                             </tr>
-                            {am.entities?.map((ent: any, j: number) => (
+                            {expandedPivotAms[`am-${i}`] && am.entities?.map((ent: any, j: number) => (
                               <tr key={`${i}-${j}`} className="bg-white text-slate-600 border-b border-slate-100">
                                 <td className="border-r border-slate-200 px-4 py-2 text-left pl-8 sticky left-0 bg-white z-10">{ent.name}</td>
                                 <td className="border-r border-slate-200 px-3 py-2">{ent.prev?.target?.toLocaleString('id-ID')}</td>

@@ -1,12 +1,13 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { PageHeader } from "@/components/layout/PageShell";
-import { Plus, ArrowLeft, Download, User, Edit, Trash2, X, ChevronLeft, ChevronRight, Save, Eye, Search } from "lucide-react";
+import { Plus, ArrowLeft, Download, User, Edit, Trash2, X, ChevronLeft, ChevronRight, Save, Eye, Search, ChevronDown } from "lucide-react";
 import { Link } from "react-router-dom";
 import { formatCurrency } from "@/lib/format";
 import { fetchProfitabilities, deleteProfitability, saveProfitabilities, updateProfitability, downloadProfitabilitiesTemplate, downloadProfitabilitiesExport, importProfitabilitiesExcel, fetchProfitabilitySubEntities, saveProfitabilitySubEntity, updateProfitabilitySubEntity, deleteProfitabilitySubEntity } from "@/api/profitability";
 import { fetchMasterData, type MasterData, fetchMasterList, saveMasterData, updateMasterData, deleteMasterData } from "@/api/sales";
 import toast from "react-hot-toast";
 import ConfirmModal from "@/components/ui/ConfirmModal";
+import Pagination from "@/components/ui/Pagination";
 
 type FinancialItem = {
   id: string;
@@ -156,6 +157,7 @@ export default function ProfitabilityManagementPage() {
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [lastPage, setLastPage] = useState(1);
+  const [expandedCmsEntities, setExpandedCmsEntities] = useState<Record<string, boolean>>({});
 
   const fetchData = async (page = 1) => {
     setLoading(true);
@@ -163,7 +165,9 @@ export default function ProfitabilityManagementPage() {
       const res = await fetchProfitabilities(page);
       setData(res.data.map((item: any) => ({
         ...item,
-        entity: item.sub_entity ? `${item.entity?.name} - ${item.sub_entity.name}` : (item.entity?.name || 'Unknown')
+        entity: item.sub_entity ? `${item.entity?.name} - ${item.sub_entity.name}` : (item.entity?.name || 'Unknown'),
+        rawEntityName: item.entity?.name || 'Unknown',
+        rawSubEntityName: item.sub_entity?.name || null
       })));
       setCurrentPage(res.current_page);
       setLastPage(res.last_page);
@@ -614,75 +618,116 @@ export default function ProfitabilityManagementPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {data.length === 0 ? (
-                        <tr><td colSpan={5} className="text-center py-6 text-gray-500">Belum ada data.</td></tr>
-                      ) : (
-                        data.map((item) => (
-                          <tr key={item.id} className="bg-white border-b border-gray-50 hover:bg-slate-50 transition">
-                            <td className="px-4 py-2.5 whitespace-nowrap text-xs font-medium text-slate-800">
-                              {item.month.toString().padStart(2, '0')}/{item.year}
-                            </td>
-                            <td className="px-4 py-2.5 whitespace-nowrap text-xs font-semibold text-slate-700">
-                              {item.entity}
-                            </td>
-                            <td className="px-4 py-2.5 whitespace-nowrap text-xs text-slate-600 text-right">
-                              {formatCurrency(item.pendapatan)}
-                            </td>
-                            <td className="px-4 py-2.5 whitespace-nowrap text-xs text-blue-600 font-bold text-right">
-                              {formatCurrency(item.laba_sebelum_pajak || 0)}
-                            </td>
-                            <td className="px-4 py-2.5 whitespace-nowrap text-xs text-emerald-600 font-bold text-right">
-                              {formatCurrency(item.laba_bersih)}
-                            </td>
-                            <td className="px-6 py-4 text-center whitespace-nowrap">
-                              <button onClick={() => setSelectedDetail(item)} className="text-blue-600 hover:text-blue-900 mx-1 p-1">
-                                <Eye className="w-4 h-4" />
-                              </button>
-                              <button onClick={() => openEditModal(item)} className="text-amber-600 hover:text-amber-900 mx-1 p-1">
-                                <Edit className="w-4 h-4" />
-                              </button>
-                              <button onClick={() => handleDeleteList(item.id)} className="text-red-600 hover:text-red-900 mx-1 p-1">
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            </td>
-                          </tr>
-                        ))
-                      )}
+                      {(() => {
+                        const groupedMap = new Map();
+                        data.forEach(item => {
+                          const groupKey = `${item.year}-${item.month}-${item.rawEntityName}`;
+                          if (!groupedMap.has(groupKey)) {
+                            groupedMap.set(groupKey, {
+                              id: `group-${groupKey}`,
+                              isGroup: true,
+                              year: item.year,
+                              month: item.month,
+                              entity: item.rawEntityName,
+                              pendapatan: 0,
+                              laba_sebelum_pajak: 0,
+                              laba_bersih: 0,
+                              children: []
+                            });
+                          }
+                          const group = groupedMap.get(groupKey);
+                          group.pendapatan += Number(item.pendapatan || 0);
+                          group.laba_sebelum_pajak += Number(item.laba_sebelum_pajak || 0);
+                          group.laba_bersih += Number(item.laba_bersih || 0);
+                          group.children.push(item);
+                        });
+                        const renderedData = Array.from(groupedMap.values());
+                        
+                        if (renderedData.length === 0) return <tr><td colSpan={6} className="text-center py-6 text-gray-500">Belum ada data.</td></tr>;
+                        
+                        return renderedData.map((group: any) => (
+                          <React.Fragment key={group.id}>
+                            <tr className={group.children.length > 1 ? "bg-slate-50 border-b border-gray-200 hover:bg-slate-100 transition font-bold" : "bg-white border-b border-gray-50 hover:bg-slate-50 transition"}>
+                              <td className="px-4 py-2.5 whitespace-nowrap text-xs font-medium text-slate-800">
+                                {group.month.toString().padStart(2, '0')}/{group.year}
+                              </td>
+                              <td className="px-4 py-2.5 whitespace-nowrap text-xs font-semibold text-slate-800">
+                                <div className="flex items-center gap-2 cursor-pointer" onClick={() => {
+                                  if (group.children.length > 1) {
+                                    setExpandedCmsEntities(prev => ({...prev, [group.id]: !prev[group.id]}));
+                                  }
+                                }}>
+                                  {group.children.length > 1 ? (expandedCmsEntities[group.id] ? <ChevronDown className="w-4 h-4 text-slate-400" /> : <ChevronRight className="w-4 h-4 text-slate-400" />) : null}
+                                  {group.children.length === 1 ? group.children[0].entity : group.entity}
+                                </div>
+                              </td>
+                              <td className="px-4 py-2.5 whitespace-nowrap text-xs text-slate-600 text-right">
+                                {formatCurrency(group.pendapatan)}
+                              </td>
+                              <td className="px-4 py-2.5 whitespace-nowrap text-xs text-blue-600 font-bold text-right">
+                                {formatCurrency(group.laba_sebelum_pajak || 0)}
+                              </td>
+                              <td className="px-4 py-2.5 whitespace-nowrap text-xs text-emerald-600 font-bold text-right">
+                                {formatCurrency(group.laba_bersih)}
+                              </td>
+                              <td className="px-6 py-2.5 text-center whitespace-nowrap">
+                                {group.children.length === 1 && (
+                                  <>
+                                    <button onClick={() => setSelectedDetail(group.children[0])} className="text-blue-600 hover:text-blue-900 mx-1 p-1">
+                                      <Eye className="w-4 h-4" />
+                                    </button>
+                                    <button onClick={() => openEditModal(group.children[0])} className="text-amber-600 hover:text-amber-900 mx-1 p-1">
+                                      <Edit className="w-4 h-4" />
+                                    </button>
+                                    <button onClick={() => handleDeleteList(group.children[0].id)} className="text-red-600 hover:text-red-900 mx-1 p-1">
+                                      <Trash2 className="w-4 h-4" />
+                                    </button>
+                                  </>
+                                )}
+                              </td>
+                            </tr>
+                            {(expandedCmsEntities[group.id] && group.children.length > 1) && group.children.map((item: any) => (
+                              <tr key={item.id} className="bg-white border-b border-gray-50 hover:bg-slate-50 transition">
+                                <td className="px-4 py-2.5 whitespace-nowrap text-xs font-medium text-slate-400 text-center">-</td>
+                                <td className="px-4 py-2.5 whitespace-nowrap text-xs font-semibold text-slate-600 pl-10">
+                                  {item.rawSubEntityName || 'Pusat'}
+                                </td>
+                                <td className="px-4 py-2.5 whitespace-nowrap text-xs text-slate-500 text-right">
+                                  {formatCurrency(item.pendapatan)}
+                                </td>
+                                <td className="px-4 py-2.5 whitespace-nowrap text-xs text-blue-500 font-semibold text-right">
+                                  {formatCurrency(item.laba_sebelum_pajak || 0)}
+                                </td>
+                                <td className="px-4 py-2.5 whitespace-nowrap text-xs text-emerald-500 font-semibold text-right">
+                                  {formatCurrency(item.laba_bersih)}
+                                </td>
+                                <td className="px-6 py-2.5 text-center whitespace-nowrap">
+                                  <button onClick={() => setSelectedDetail(item)} className="text-blue-600 hover:text-blue-900 mx-1 p-1">
+                                    <Eye className="w-4 h-4" />
+                                  </button>
+                                  <button onClick={() => openEditModal(item)} className="text-amber-600 hover:text-amber-900 mx-1 p-1">
+                                    <Edit className="w-4 h-4" />
+                                  </button>
+                                  <button onClick={() => handleDeleteList(item.id)} className="text-red-600 hover:text-red-900 mx-1 p-1">
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </React.Fragment>
+                        ));
+                      })()}
                     </tbody>
                   </table>
                 </div>
                 
                 {/* Pagination Controls */}
                 {!loading && data.length > 0 && lastPage > 1 && (
-                  <div className="flex items-center justify-between border-t border-gray-200 bg-white px-6 py-4 rounded-b-xl shadow-sm mt-4">
-                    <div className="flex flex-col gap-3 sm:flex-row sm:flex-1 sm:items-center sm:justify-between w-full">
-                      <div>
-                        <p className="text-sm text-gray-700">
-                          Halaman <span className="font-medium">{currentPage}</span> dari <span className="font-medium">{lastPage}</span>
-                        </p>
-                      </div>
-                      <div>
-                        <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
-                          <button
-                            onClick={() => fetchData(currentPage - 1)}
-                            disabled={currentPage === 1}
-                            className="relative inline-flex items-center rounded-l-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0 disabled:opacity-50"
-                          >
-                            <span className="sr-only">Previous</span>
-                            <ChevronLeft className="h-5 w-5" />
-                          </button>
-                          <button
-                            onClick={() => fetchData(currentPage + 1)}
-                            disabled={currentPage === lastPage}
-                            className="relative inline-flex items-center rounded-r-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0 disabled:opacity-50"
-                          >
-                            <span className="sr-only">Next</span>
-                            <ChevronRight className="h-5 w-5" />
-                          </button>
-                        </nav>
-                      </div>
-                    </div>
-                  </div>
+                  <Pagination 
+                    currentPage={currentPage} 
+                    lastPage={lastPage} 
+                    onPageChange={fetchData} 
+                  />
                 )}
               </div>
             </div>
